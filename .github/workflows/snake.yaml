@@ -7,6 +7,12 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+
+permissions:
+  contents: write  # Allow write access to contents (useful for pushing changes)
+  actions: write 
+
+
 jobs:
   generate:
     runs-on: ubuntu-latest
