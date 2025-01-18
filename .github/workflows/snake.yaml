@@ -28,20 +28,19 @@ jobs:
           echo "Workspace contents:"
           ls -la
           echo "Contents of dist/:"
-          ls -la dist
+          ls -la dist/
 
-      - name: Upload Snake Animations
-        uses: actions/upload-artifact@v3
-        with:
-          name: snake-animations
-          path: dist/
+      - name: Fix Permissions
+        run: |
+          sudo chown -R $USER:$USER dist/
+          sudo chmod -R 755 dist/
 
-      - name: Commit and Push Snake Animations
+      - name: Copy and Commit Snake Animations
         run: |
           mkdir -p output
-          mv dist/github-snake.svg output/github-contribution-grid-snake.svg
-          mv dist/github-snake-dark.svg output/github-contribution-grid-snake-dark.svg
-          mv dist/ocean.gif output/github-contribution-ocean.gif
+          cp dist/github-snake.svg output/github-contribution-grid-snake.svg
+          cp dist/github-snake-dark.svg output/github-contribution-grid-snake-dark.svg
+          cp dist/ocean.gif output/github-contribution-ocean.gif
           git config --local user.email "abhigkumar709@gmail.com"
           git config --local user.name "abhigyan-709"
           git add output/
