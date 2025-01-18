@@ -14,13 +14,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Prepare Output Directory
-        run: mkdir -p dist
-
       - name: Generate Snake Animation
-        uses: Platane/snk@v2
+        uses: Platane/snk@v3
         with:
-          github_user_name: abhigyan-709
+          github_user_name: ${{ github.repository_owner }}
+          outputs: |
+            dist/github-snake.svg
+            dist/github-snake-dark.svg?palette=github-dark
+            dist/ocean.gif?color_snake=orange&color_dots=#bfd6f6,#8dbdff,#64a1f4,#4b91f1,#3c7dd9
 
       - name: Debug Workspace
         run: |
@@ -29,19 +30,21 @@ jobs:
           echo "Contents of dist/:"
           ls -la dist
 
-      - name: Upload Snake Animation
+      - name: Upload Snake Animations
         uses: actions/upload-artifact@v3
         with:
-          name: snake
-          path: dist/snake.svg
+          name: snake-animations
+          path: dist/
 
-      - name: Commit and Push Snake
+      - name: Commit and Push Snake Animations
         run: |
           mkdir -p output
-          mv dist/snake.svg output/github-contribution-grid-snake.svg
+          mv dist/github-snake.svg output/github-contribution-grid-snake.svg
+          mv dist/github-snake-dark.svg output/github-contribution-grid-snake-dark.svg
+          mv dist/ocean.gif output/github-contribution-ocean.gif
           git config --local user.email "abhigkumar709@gmail.com"
           git config --local user.name "abhigyan-709"
-          git add output/github-contribution-grid-snake.svg
-          git commit -m "Updated GitHub contribution snake"
+          git add output/
+          git commit -m "Updated GitHub contribution snake animations"
           git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}
           git push
