@@ -25,9 +25,9 @@ jobs:
         with:
           github_user_name: ${{ github.repository_owner }}
           outputs: |
-            dist/github-snake.svg
-            dist/github-snake-dark.svg?palette=github-dark
-            dist/ocean.gif?color_snake=orange&color_dots=#bfd6f6,#8dbdff,#64a1f4,#4b91f1,#3c7dd9
+            dist/github-snake.svg?color_snake=#FF5733&color_dots=#FFD700,#FF6347,#FF4500,#8B0000,#FF1493
+            dist/github-snake-dark.svg?palette=github-dark&color_snake=#32CD32&color_dots=#00FF00,#228B22,#006400,#8B4513,#006400
+            dist/ocean.gif?color_snake=#FF5733&color_dots=#FFD700,#FF6347,#FF4500,#8B0000,#FF1493
 
       - name: Debug Workspace
         run: |
