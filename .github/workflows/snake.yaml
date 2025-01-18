@@ -14,10 +14,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Prepare Output Directory
+        run: mkdir -p dist
+
       - name: Generate Snake Animation
         uses: Platane/snk@v2
         with:
           github_user_name: abhigyan-709
+
+      - name: Debug Workspace
+        run: |
+          echo "Workspace contents:"
+          ls -la
+          echo "Contents of dist/:"
+          ls -la dist
 
       - name: Upload Snake Animation
         uses: actions/upload-artifact@v3
