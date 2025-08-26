@@ -5,13 +5,11 @@
 #     branches:
 #       - main
 #   schedule:
-#     - cron: "0 0 * * *"
-
+#     - cron: "0 0 * * *" # Runs every day at midnight UTC
 
 # permissions:
-#   contents: write  # Allow write access to contents (useful for pushing changes)
-#   actions: write 
-
+#   contents: write
+#   actions: write
 
 # jobs:
 #   generate:
@@ -19,6 +17,8 @@
 #     steps:
 #       - name: Checkout Repository
 #         uses: actions/checkout@v3
+#         with:
+#           fetch-depth: 0   # fetch full history for proper rebase/merge
 
 #       - name: Generate Snake Animation
 #         uses: Platane/snk@v3
@@ -47,80 +47,84 @@
 #           cp dist/github-snake.svg output/github-contribution-grid-snake.svg
 #           cp dist/github-snake-dark.svg output/github-contribution-grid-snake-dark.svg
 #           cp dist/ocean.gif output/github-contribution-ocean.gif
+
 #           git config --local user.email "abhigkumar709@gmail.com"
 #           git config --local user.name "abhigyan-709"
+
+#           # Make sure we're on the latest main
+#           git fetch origin main
+#           git checkout main
+#           git pull origin main
+
+#           # Stage changes
 #           git add output/
-#           git commit -m "Updated GitHub contribution snake animations"
-#           git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}
-#           git push
+
+#           # Commit only if there are changes
+#           if git diff --cached --quiet; then
+#             echo "✅ No changes to commit"
+#           else
+#             git commit -m "chore: update GitHub contribution snake animations"
+#             git pull --rebase origin main   # replay commit on top of latest code
+#             git push origin main
+#           fi
 
 
 name: Generate Snake Animation
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   schedule:
-    - cron: "0 0 * * *" # Runs every day at midnight UTC
+    - cron: "0 0 * * *"     # daily
+  workflow_dispatch:        # manual run
 
 permissions:
   contents: write
-  actions: write
+
+concurrency:
+  group: snake-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  generate:
+  snake:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0   # fetch full history for proper rebase/merge
+    strategy:
+      matrix:
+        theme:
+          - { name: "light",  snake: "#FF5733", dots: "#FFD700,#FF6347,#FF4500,#8B0000,#FF1493", extra: "" }
+          - { name: "dark",   snake: "#32CD32", dots: "#00FF00,#228B22,#006400,#8B4513,#006400", extra: "palette=github-dark" }
+          - { name: "ocean",  snake: "#00BFFF", dots: "#00FFFF,#1E90FF,#4169E1,#191970,#7FFFD4", extra: "" }
+          - { name: "neon",   snake: "#39FF14", dots: "#39FF14,#FFD700,#FF00FF,#00FFFF,#FF4500", extra: "" }
 
-      - name: Generate Snake Animation
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Generate (SVG + GIF)
         uses: Platane/snk@v3
         with:
           github_user_name: ${{ github.repository_owner }}
           outputs: |
-            dist/github-snake.svg?color_snake=#FF5733&color_dots=#FFD700,#FF6347,#FF4500,#8B0000,#FF1493
-            dist/github-snake-dark.svg?palette=github-dark&color_snake=#32CD32&color_dots=#00FF00,#228B22,#006400,#8B4513,#006400
-            dist/ocean.gif?color_snake=#FF5733&color_dots=#FFD700,#FF6347,#FF4500,#8B0000,#FF1493
+            dist/${{ matrix.theme.name }}.svg?${{ matrix.theme.extra }}&color_snake=${{ matrix.theme.snake }}&color_dots=${{ matrix.theme.dots }}
+            dist/${{ matrix.theme.name }}.gif?${{ matrix.theme.extra }}&color_snake=${{ matrix.theme.snake }}&color_dots=${{ matrix.theme.dots }}
 
-      - name: Debug Workspace
-        run: |
-          echo "Workspace contents:"
-          ls -la
-          echo "Contents of dist/:"
-          ls -la dist/
-
-      - name: Fix Permissions
-        run: |
-          sudo chown -R $USER:$USER dist/
-          sudo chmod -R 755 dist/
-
-      - name: Copy and Commit Snake Animations
+      - name: Stage to /output and commit if changed
         run: |
           mkdir -p output
-          cp dist/github-snake.svg output/github-contribution-grid-snake.svg
-          cp dist/github-snake-dark.svg output/github-contribution-grid-snake-dark.svg
-          cp dist/ocean.gif output/github-contribution-ocean.gif
-
+          cp dist/${{ matrix.theme.name }}.svg output/github-contribution-snake-${{ matrix.theme.name }}.svg
+          cp dist/${{ matrix.theme.name }}.gif output/github-contribution-snake-${{ matrix.theme.name }}.gif
           git config --local user.email "abhigkumar709@gmail.com"
-          git config --local user.name "abhigyan-709"
-
-          # Make sure we're on the latest main
-          git fetch origin main
-          git checkout main
-          git pull origin main
-
-          # Stage changes
+          git config --local user.name  "abhigyan-709"
           git add output/
+          git diff --cached --quiet || git commit -m "chore: snake (${{
+            matrix.theme.name }})"
+      - name: Push
+        run: |
+          git pull --rebase origin main || true
+          git push origin HEAD:main || true
 
-          # Commit only if there are changes
-          if git diff --cached --quiet; then
-            echo "✅ No changes to commit"
-          else
-            git commit -m "chore: update GitHub contribution snake animations"
-            git pull --rebase origin main   # replay commit on top of latest code
-            git push origin main
-          fi
+      - name: Upload artifacts (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: snake-${{ matrix.theme.name }}
+          path: output/*
