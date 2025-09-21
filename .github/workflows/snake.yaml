@@ -1,82 +1,9 @@
-# name: Generate Snake Animation
-
-# on:
-#   push:
-#     branches:
-#       - main
-#   schedule:
-#     - cron: "0 0 * * *" # Runs every day at midnight UTC
-
-# permissions:
-#   contents: write
-#   actions: write
-
-# jobs:
-#   generate:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout Repository
-#         uses: actions/checkout@v3
-#         with:
-#           fetch-depth: 0   # fetch full history for proper rebase/merge
-
-#       - name: Generate Snake Animation
-#         uses: Platane/snk@v3
-#         with:
-#           github_user_name: ${{ github.repository_owner }}
-#           outputs: |
-#             dist/github-snake.svg?color_snake=#FF5733&color_dots=#FFD700,#FF6347,#FF4500,#8B0000,#FF1493
-#             dist/github-snake-dark.svg?palette=github-dark&color_snake=#32CD32&color_dots=#00FF00,#228B22,#006400,#8B4513,#006400
-#             dist/ocean.gif?color_snake=#FF5733&color_dots=#FFD700,#FF6347,#FF4500,#8B0000,#FF1493
-
-#       - name: Debug Workspace
-#         run: |
-#           echo "Workspace contents:"
-#           ls -la
-#           echo "Contents of dist/:"
-#           ls -la dist/
-
-#       - name: Fix Permissions
-#         run: |
-#           sudo chown -R $USER:$USER dist/
-#           sudo chmod -R 755 dist/
-
-#       - name: Copy and Commit Snake Animations
-#         run: |
-#           mkdir -p output
-#           cp dist/github-snake.svg output/github-contribution-grid-snake.svg
-#           cp dist/github-snake-dark.svg output/github-contribution-grid-snake-dark.svg
-#           cp dist/ocean.gif output/github-contribution-ocean.gif
-
-#           git config --local user.email "abhigkumar709@gmail.com"
-#           git config --local user.name "abhigyan-709"
-
-#           # Make sure we're on the latest main
-#           git fetch origin main
-#           git checkout main
-#           git pull origin main
-
-#           # Stage changes
-#           git add output/
-
-#           # Commit only if there are changes
-#           if git diff --cached --quiet; then
-#             echo "✅ No changes to commit"
-#           else
-#             git commit -m "chore: update GitHub contribution snake animations"
-#             git pull --rebase origin main   # replay commit on top of latest code
-#             git push origin main
-#           fi
-
-
 name: Generate Snake Animation
 
 on:
-  push:
-    branches: [main]
   schedule:
-    - cron: "0 0 * * *"     # daily
-  workflow_dispatch:        # manual run
+    - cron: "0 0 * * *"    # daily at 00:00 UTC
+  workflow_dispatch:       # manual run
 
 permissions:
   contents: write
@@ -86,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  snake:
+  build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -108,23 +35,51 @@ jobs:
             dist/${{ matrix.theme.name }}.svg?${{ matrix.theme.extra }}&color_snake=${{ matrix.theme.snake }}&color_dots=${{ matrix.theme.dots }}
             dist/${{ matrix.theme.name }}.gif?${{ matrix.theme.extra }}&color_snake=${{ matrix.theme.snake }}&color_dots=${{ matrix.theme.dots }}
 
-      - name: Stage to /output and commit if changed
+      - name: Upload artifacts for ${{ matrix.theme.name }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: snake-${{ matrix.theme.name }}
+          path: |
+            dist/${{ matrix.theme.name }}.svg
+            dist/${{ matrix.theme.name }}.gif
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: snake-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Stage to /output
         run: |
           mkdir -p output
-          cp dist/${{ matrix.theme.name }}.svg output/github-contribution-snake-${{ matrix.theme.name }}.svg
-          cp dist/${{ matrix.theme.name }}.gif output/github-contribution-snake-${{ matrix.theme.name }}.gif
+          for f in artifacts/*.svg; do
+            base=$(basename "$f" .svg)
+            cp "$f" "output/github-contribution-snake-${base#light}.svg" 2>/dev/null || true
+            cp "$f" "output/github-contribution-snake-${base}.svg" 2>/dev/null || true
+          done
+          for f in artifacts/*.gif; do
+            base=$(basename "$f" .gif)
+            cp "$f" "output/github-contribution-snake-${base#light}.gif" 2>/dev/null || true
+            cp "$f" "output/github-contribution-snake-${base}.gif" 2>/dev/null || true
+          done
+
+      - name: Commit changes (single commit) with [skip ci]
+        run: |
           git config --local user.email "abhigkumar709@gmail.com"
           git config --local user.name  "abhigyan-709"
           git add output/
-          git diff --cached --quiet || git commit -m "chore: snake (${{
-            matrix.theme.name }})"
+          git diff --cached --quiet || git commit -m "chore: update snake assets [skip ci]"
+
       - name: Push
         run: |
           git pull --rebase origin main || true
           git push origin HEAD:main || true
-
-      - name: Upload artifacts (optional)
-        uses: actions/upload-artifact@v4
-        with:
-          name: snake-${{ matrix.theme.name }}
-          path: output/*
